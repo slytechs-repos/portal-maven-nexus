@@ -1,0 +1,14 @@
+# portal-maven-nexus — Private Maven Repository @ maven.slytechs.com
+
+One-command, fully containerized, auto-HTTPS private Maven repository using:
+- Sonatype Nexus Repository OSS 3
+- Traefik v3 with automatic Let's Encrypt certificates
+- Zero-downtime, production-grade
+
+## Quick start (on any Linux colo/DC server)
+
+```bash
+cd /opt
+sudo mkdir portal-maven-nexus && cd portal-maven-nexus
+sudo curl -L https://raw.githubusercontent.com/slytechs-repos/portal-maven-nexus/main/docker-compose.yml -o docker-compose.yml
+sudo docker compose up -d

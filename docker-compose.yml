@@ -1,29 +1,11 @@
-# docker-compose.yml
+# /opt/maven-repo/docker-compose.yml
+# 100% conflict-free – does NOT bind host ports 80/443
 version: "3.9"
 
 services:
-  nexus:
-    image: sonatype/nexus3:3.74.0  # latest OSS as of Dec 2025
-    container_name: nexus-repo
-    restart: unless-stopped
-    volumes:
-      - nexus-data:/nexus-data
-      - /etc/localtime:/etc/localtime:ro
-    environment:
-      - NEXUS_CONTEXT=nexus                 # makes base path /nexus instead of /
-      - INSTALL4J_JAVA_HOME=/opt/java/openjdk
-    networks:
-      - maven-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nexus.rule=Host(`maven.slytechs.com`)"
-      - "traefik.http.routers.nexus.entrypoints=websecure"
-      - "traefik.http.routers.nexus.tls.certresolver=letsencrypt"
-      - "traefik.http.services.nexus.loadbalancer.server.port=8081"
-
-  traefik:
+  traefik-maven:
     image: traefik:v3.1
-    container_name: traefik
+    container_name: traefik-maven
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -33,19 +15,42 @@ services:
       - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
       - --certificatesresolvers.letsencrypt.acme.email=admin@slytechs.com
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
-    ports:
-      - "80:80"
-      - "443:443"
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --log.level=INFO
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-letsencrypt:/letsencrypt
+      - traefik-acme:/acme
     networks:
       - maven-net
+    # ← NO ports: section → nothing binds to host 80/443
+
+  nexus:
+    image: sonatype/nexus3:3.74.0
+    container_name: nexus-repo
+    restart: unless-stopped
+    volumes:
+      - nexus-data:/nexus-data
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - NEXUS_CONTEXT=nexus
+    networks:
+      - maven-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nexus.rule=Host(`maven.slytechs.com`)"
+      - "traefik.http.routers.nexus.entrypoints=websecure"
+      - "traefik.http.routers.nexus.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nexus.service=nexus-svc"
+      - "traefik.http.services.nexus-svc.loadbalancer.server.port=8081"
+      # Optional: redirect HTTP → HTTPS
+      - "traefik.http.routers.nexus-http.rule=Host(`maven.slytechs.com`)"
+      - "traefik.http.routers.nexus-http.entrypoints=web"
+      - "traefik.http.routers.nexus-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
 
 volumes:
   nexus-data:
-  traefik-letsencrypt:
+  traefik-acme:
 
 networks:
   maven-net:
